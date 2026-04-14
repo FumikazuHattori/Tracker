@@ -217,32 +217,18 @@ body {
   margin-right: 2px;
 }
 
-.target-unit {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.target-h-input,
-.target-m-input {
-  width: 52px;
+.target-time-input {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.9rem;
-  text-align: center;
+  padding: 4px 10px;
+  font-size: 0.95rem;
   background: var(--bg);
   color: var(--text);
   outline: none;
-  -moz-appearance: textfield;
+  cursor: pointer;
 }
 
-.target-h-input::-webkit-inner-spin-button,
-.target-m-input::-webkit-inner-spin-button {
-  opacity: 1;
-}
-
-.target-h-input:focus,
-.target-m-input:focus {
+.target-time-input:focus {
   border-color: var(--accent);
 }
 

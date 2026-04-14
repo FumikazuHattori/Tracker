@@ -2,10 +2,6 @@
 
 const STORAGE_KEY = 'wtt_data';
 
-// state.projects:     Array<{ id, name }>
-// state.records:      { [dateKey]: { [projectId]: totalSeconds } }
-// state.dailyTargets: { [dateKey]: { [projectId]: targetSeconds } }
-// state.running:      { projectId, startedAt (ms) } | null
 let state = {
   projects: [],
   records: {},
@@ -13,7 +9,6 @@ let state = {
   running: null,
 };
 
-// ─── Persistence ──────────────────────────────────────────────────────────────
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -25,7 +20,6 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -68,7 +62,6 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// ─── Target Helpers ───────────────────────────────────────────────────────────
 function getTodayTarget(projectId) {
   const key = todayKey();
   return (state.dailyTargets[key] && state.dailyTargets[key][projectId]) || 0;
@@ -89,7 +82,6 @@ function targetProgressClass(actual, target) {
   return '';
 }
 
-// ─── Timer Actions ────────────────────────────────────────────────────────────
 function startTimer(projectId) {
   if (state.running) commitRunning();
   state.running = { projectId, startedAt: Date.now() };
@@ -114,7 +106,6 @@ function commitRunning() {
   state.records[key][projectId] = (state.records[key][projectId] || 0) + elapsed;
 }
 
-// ─── Project Actions ──────────────────────────────────────────────────────────
 function addProject(name) {
   const trimmed = name.trim();
   if (!trimmed) return;
@@ -130,7 +121,6 @@ function deleteProject(projectId) {
   render();
 }
 
-// ─── Render ───────────────────────────────────────────────────────────────────
 function render() {
   renderDate();
   renderProjects();
@@ -173,8 +163,9 @@ function renderProjects() {
     const isRunning = state.running && state.running.projectId === project.id;
     const seconds = totalSecondsForProjectNow(project.id);
     const target = getTodayTarget(project.id);
-    const targetH = Math.floor(target / 3600);
-    const targetM = Math.floor((target % 3600) / 60);
+    const targetH = String(Math.floor(target / 3600)).padStart(2, '0');
+    const targetM = String(Math.floor((target % 3600) / 60)).padStart(2, '0');
+    const targetValue = target > 0 ? `${targetH}:${targetM}` : '';
 
     const card = document.createElement('div');
     card.className = 'project-card' + (isRunning ? ' is-running' : '');
@@ -189,12 +180,8 @@ function renderProjects() {
       </div>
       <div class="target-input-row">
         <span class="target-label">\u4eca\u65e5\u306e\u30bf\u30fc\u30b2\u30c3\u30c8</span>
-        <input class="target-h-input" type="number" min="0" max="23" value="${targetH}"
-          data-action="set-target" data-id="${project.id}" aria-label="\u6642\u9593">
-        <span class="target-unit">\u6642\u9593</span>
-        <input class="target-m-input" type="number" min="0" max="59" value="${targetM}"
-          data-action="set-target" data-id="${project.id}" aria-label="\u5206">
-        <span class="target-unit">\u5206</span>
+        <input class="target-time-input" type="time" value="${targetValue}"
+          data-action="set-target" data-id="${project.id}" aria-label="\u76ee\u6a19\u6642\u9593">
       </div>
       ${target > 0 ? buildTargetBar(seconds, target) : ''}
       ${isRunning ? '<span class="running-label">\u25cf \u8a08\u6e2c\u4e2d</span>' : ''}
@@ -242,7 +229,6 @@ function escHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ─── Event Delegation ─────────────────────────────────────────────────────────
 document.getElementById('projects-container').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -261,19 +247,13 @@ document.getElementById('projects-container').addEventListener('click', (e) => {
   }
 });
 
-// Save target when hour/minute inputs change
 document.getElementById('projects-container').addEventListener('change', (e) => {
   const input = e.target.closest('[data-action="set-target"]');
   if (!input) return;
   const card = input.closest('.project-card');
   const id = input.dataset.id;
-  const hInput = card.querySelector('.target-h-input');
-  const mInput = card.querySelector('.target-m-input');
-  const h = Math.max(0, Math.min(23, parseInt(hInput.value, 10) || 0));
-  const m = Math.max(0, Math.min(59, parseInt(mInput.value, 10) || 0));
-  hInput.value = h;
-  mInput.value = m;
-  setTodayTarget(id, h * 3600 + m * 60);
+  const [h, m] = (input.value || '00:00').split(':').map(Number);
+  setTodayTarget(id, (h || 0) * 3600 + (m || 0) * 60);
   renderSummary();
   const actual = totalSecondsForProjectNow(id);
   const target = getTodayTarget(id);
@@ -301,7 +281,6 @@ document.getElementById('add-project-form').addEventListener('submit', (e) => {
   input.focus();
 });
 
-// ─── Tick ─────────────────────────────────────────────────────────────────────
 let lastDateKey = todayKey();
 
 function tick() {
@@ -345,7 +324,6 @@ function tick() {
   }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 load();
 render();
 setInterval(tick, 1000);
