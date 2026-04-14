@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Work Time Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Work Time Tracker</h1>
+      <div class="date" id="current-date"></div>
+    </header>
+
+    <section class="add-project">
+      <form id="add-project-form">
+        <input
+          type="text"
+          id="project-name-input"
+          placeholder="プロジェクト名を入力..."
+          maxlength="50"
+          autocomplete="off"
+        >
+        <button type="submit">追加</button>
+      </form>
+    </section>
+
+    <section class="projects" id="projects-container">
+      <!-- Projects rendered by JS -->
+    </section>
+
+    <section class="summary" id="summary-section">
+      <h2>本日の合計</h2>
+      <div class="summary-list" id="summary-list"></div>
+      <div class="total-row">
+        <span>総合計</span>
+        <span id="grand-total">0:00:00</span>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
