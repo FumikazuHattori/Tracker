@@ -37,7 +37,6 @@ body {
   gap: 20px;
 }
 
-/* Header */
 .header {
   display: flex;
   align-items: baseline;
@@ -57,7 +56,6 @@ body {
   white-space: nowrap;
 }
 
-/* Add project form */
 .add-project {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -104,7 +102,6 @@ body {
   background: var(--accent-hover);
 }
 
-/* Project cards */
 .projects {
   display: flex;
   flex-direction: column;
@@ -195,7 +192,6 @@ body {
   border-color: var(--danger);
 }
 
-/* Running indicator */
 .running-label {
   display: inline-block;
   margin-top: 8px;
@@ -205,7 +201,6 @@ body {
   letter-spacing: 0.03em;
 }
 
-/* Summary */
 .summary {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -215,7 +210,6 @@ body {
 }
 
 .summary h2 {
-  font-size: 1rem;
   font-weight: 700;
   margin-bottom: 12px;
   color: var(--text-secondary);

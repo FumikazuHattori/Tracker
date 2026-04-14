@@ -1,31 +1,24 @@
 'use strict';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'wtt_data';
 
-// ─── State ───────────────────────────────────────────────────────────────────
-// state.projects: Array<{ id, name }>
-// state.records:  { [dateKey]: { [projectId]: totalSeconds } }
-// state.running:  { projectId, startedAt (ms) } | null
 let state = {
   projects: [],
   records: {},
   running: null,
 };
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) state = JSON.parse(raw);
-  } catch (_) { /* ignore corrupt data */ }
+  } catch (_) {}
 }
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -68,12 +61,8 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// ─── Timer Actions ───────────────────────────────────────────────────────────
 function startTimer(projectId) {
-  // Stop any running timer first
-  if (state.running) {
-    commitRunning();
-  }
+  if (state.running) commitRunning();
   state.running = { projectId, startedAt: Date.now() };
   save();
   render();
@@ -96,7 +85,6 @@ function commitRunning() {
   state.records[key][projectId] = (state.records[key][projectId] || 0) + elapsed;
 }
 
-// ─── Project Actions ──────────────────────────────────────────────────────────
 function addProject(name) {
   const trimmed = name.trim();
   if (!trimmed) return;
@@ -106,16 +94,12 @@ function addProject(name) {
 }
 
 function deleteProject(projectId) {
-  // Stop timer if this project is running
-  if (state.running && state.running.projectId === projectId) {
-    state.running = null;
-  }
+  if (state.running && state.running.projectId === projectId) state.running = null;
   state.projects = state.projects.filter(p => p.id !== projectId);
   save();
   render();
 }
 
-// ─── Render ───────────────────────────────────────────────────────────────────
 function render() {
   renderDate();
   renderProjects();
@@ -130,33 +114,26 @@ function renderDate() {
 
 function renderProjects() {
   const container = document.getElementById('projects-container');
-
   if (state.projects.length === 0) {
     container.innerHTML = '<p class="empty-state">プロジェクトがありません。上のフォームから追加してください。</p>';
     return;
   }
-
   container.innerHTML = '';
   for (const project of state.projects) {
     const isRunning = state.running && state.running.projectId === project.id;
     const seconds = totalSecondsForProjectNow(project.id);
-
     const card = document.createElement('div');
     card.className = 'project-card' + (isRunning ? ' is-running' : '');
     card.dataset.id = project.id;
-
     card.innerHTML = `
       <div class="project-card-main">
         <span class="project-name" title="${escHtml(project.name)}">${escHtml(project.name)}</span>
         <span class="project-timer" data-timer="${project.id}">${formatHMS(seconds)}</span>
-        <button class="btn-toggle" data-action="toggle" data-id="${project.id}">
-          ${isRunning ? '停止' : '開始'}
-        </button>
+        <button class="btn-toggle" data-action="toggle" data-id="${project.id}">${isRunning ? '停止' : '開始'}</button>
         <button class="btn-delete" data-action="delete" data-id="${project.id}" title="削除">✕</button>
       </div>
       ${isRunning ? '<span class="running-label">● 計測中</span>' : ''}
     `;
-
     container.appendChild(card);
   }
 }
@@ -164,20 +141,16 @@ function renderProjects() {
 function renderSummary() {
   const list = document.getElementById('summary-list');
   const grandEl = document.getElementById('grand-total');
-
   if (state.projects.length === 0) {
     list.innerHTML = '';
     grandEl.textContent = '0:00:00';
     return;
   }
-
   const maxSec = maxTodaySeconds();
   list.innerHTML = '';
-
   for (const project of state.projects) {
     const sec = totalSecondsForProjectNow(project.id);
     const pct = maxSec > 0 ? Math.round((sec / maxSec) * 100) : 0;
-
     const row = document.createElement('div');
     row.className = 'summary-row';
     row.innerHTML = `
@@ -187,7 +160,6 @@ function renderSummary() {
     `;
     list.appendChild(row);
   }
-
   grandEl.textContent = formatHMS(grandTotalNow());
 }
 
@@ -195,19 +167,16 @@ function escHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ─── Event Delegation ────────────────────────────────────────────────────────
 document.getElementById('projects-container').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const { action, id } = btn.dataset;
-
   if (action === 'toggle') {
     const isRunning = state.running && state.running.projectId === id;
     isRunning ? stopTimer(id) : startTimer(id);
   } else if (action === 'delete') {
     const project = state.projects.find(p => p.id === id);
     if (project && confirm(`「${project.name}」を削除しますか？\n本日の記録も削除されます。`)) {
-      // Remove today's record too
       const key = todayKey();
       if (state.records[key]) delete state.records[key][id];
       deleteProject(id);
@@ -223,34 +192,25 @@ document.getElementById('add-project-form').addEventListener('submit', (e) => {
   input.focus();
 });
 
-// ─── Tick ────────────────────────────────────────────────────────────────────
 let lastDateKey = todayKey();
 
 function tick() {
-  // Detect day change: commit running timer and reset
   const currentKey = todayKey();
   if (currentKey !== lastDateKey) {
     if (state.running) {
       commitRunning();
-      // Restart the same project in the new day
       state.running = { projectId: state.running.projectId, startedAt: Date.now() };
       save();
     }
     lastDateKey = currentKey;
   }
-
   if (state.running) {
-    // Update only the running project's timer display
     const timerEl = document.querySelector(`[data-timer="${state.running.projectId}"]`);
-    if (timerEl) {
-      timerEl.textContent = formatHMS(totalSecondsForProjectNow(state.running.projectId));
-    }
-    // Update summary totals
+    if (timerEl) timerEl.textContent = formatHMS(totalSecondsForProjectNow(state.running.projectId));
     renderSummary();
   }
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
 load();
 render();
 setInterval(tick, 1000);
