@@ -17,6 +17,7 @@
   --active: #16a34a;
   --active-hover: #15803d;
   --active-bg: #f0fdf4;
+  --warn: #d97706;
   --shadow: 0 1px 3px rgba(0,0,0,0.08);
   --radius: 8px;
 }
@@ -201,6 +202,85 @@ body {
   letter-spacing: 0.03em;
 }
 
+/* Target input row */
+.target-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.target-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-right: 2px;
+}
+
+.target-unit {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.target-h-input,
+.target-m-input {
+  width: 52px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.target-h-input::-webkit-inner-spin-button,
+.target-m-input::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
+.target-h-input:focus,
+.target-m-input:focus {
+  border-color: var(--accent);
+}
+
+/* Target progress bar */
+.target-row {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.target-bar-wrap {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.target-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 1s linear, background 0.3s;
+}
+
+.target-bar.warn { background: var(--warn); }
+.target-bar.over { background: var(--danger); }
+
+.target-status {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.target-status.warn { color: var(--warn); font-weight: 600; }
+.target-status.over { color: var(--danger); font-weight: 600; }
+
+/* Summary */
 .summary {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -264,6 +344,11 @@ body {
   border-radius: 2px;
   transition: width 1s linear;
 }
+
+.summary-row .s-bar.warn  { background: var(--warn); }
+.summary-row .s-bar.over  { background: var(--danger); }
+.summary-row .s-time.warn { color: var(--warn); }
+.summary-row .s-time.over { color: var(--danger); }
 
 .total-row {
   display: flex;
