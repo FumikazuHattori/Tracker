@@ -173,8 +173,9 @@ function renderProjects() {
     const isRunning = state.running && state.running.projectId === project.id;
     const seconds = totalSecondsForProjectNow(project.id);
     const target = getTodayTarget(project.id);
-    const targetH = Math.floor(target / 3600);
-    const targetM = Math.floor((target % 3600) / 60);
+    const targetH = String(Math.floor(target / 3600)).padStart(2, '0');
+    const targetM = String(Math.floor((target % 3600) / 60)).padStart(2, '0');
+    const targetValue = target > 0 ? `${targetH}:${targetM}` : '';
 
     const card = document.createElement('div');
     card.className = 'project-card' + (isRunning ? ' is-running' : '');
@@ -189,12 +190,8 @@ function renderProjects() {
       </div>
       <div class="target-input-row">
         <span class="target-label">今日の目標</span>
-        <input class="target-h-input" type="number" min="0" max="23" value="${targetH}"
-          data-action="set-target" data-id="${project.id}" aria-label="時間">
-        <span class="target-unit">時間</span>
-        <input class="target-m-input" type="number" min="0" max="59" value="${targetM}"
-          data-action="set-target" data-id="${project.id}" aria-label="分">
-        <span class="target-unit">分</span>
+        <input class="target-time-input" type="time" value="${targetValue}"
+          data-action="set-target" data-id="${project.id}" aria-label="目標時間">
       </div>
       ${target > 0 ? buildTargetBar(seconds, target) : ''}
       ${isRunning ? '<span class="running-label">● 計測中</span>' : ''}
@@ -261,19 +258,14 @@ document.getElementById('projects-container').addEventListener('click', (e) => {
   }
 });
 
-// Save target when hour/minute inputs change
+// Save target when time input changes
 document.getElementById('projects-container').addEventListener('change', (e) => {
   const input = e.target.closest('[data-action="set-target"]');
   if (!input) return;
   const card = input.closest('.project-card');
   const id = input.dataset.id;
-  const hInput = card.querySelector('.target-h-input');
-  const mInput = card.querySelector('.target-m-input');
-  const h = Math.max(0, Math.min(23, parseInt(hInput.value, 10) || 0));
-  const m = Math.max(0, Math.min(59, parseInt(mInput.value, 10) || 0));
-  hInput.value = h;
-  mInput.value = m;
-  setTodayTarget(id, h * 3600 + m * 60);
+  const [h, m] = (input.value || '00:00').split(':').map(Number);
+  setTodayTarget(id, (h || 0) * 3600 + (m || 0) * 60);
   renderSummary();
   // Re-render just the target bar inside this card without full re-render
   const actual = totalSecondsForProjectNow(id);
