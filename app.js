@@ -259,7 +259,7 @@ function renderProjects() {
     const target = getTodayTarget(project.id);
     const targetH = String(Math.floor(target / 3600)).padStart(2, '0');
     const targetM = String(Math.floor((target % 3600) / 60)).padStart(2, '0');
-    const targetValue = target > 0 ? `${targetH}:${targetM}` : '';
+    const targetValue = target > 0 ? `${targetH}:${targetM}` : '00:00';
 
     const card = document.createElement('div');
     card.className = 'project-card' + (isRunning ? ' is-running' : '');
