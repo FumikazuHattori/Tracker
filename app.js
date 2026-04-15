@@ -215,7 +215,7 @@ function buildLogList(projectId) {
               data-log-input="${log.id}"
               value="${escHtml(log.note)}"
               maxlength="200">
-            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">${'\u5b8c\u4e86'}</button>
+            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">\u5b8c\u4e86</button>
           </div>
         </li>`;
     }
@@ -245,7 +245,7 @@ function renderProjects() {
     const target = getTodayTarget(project.id);
     const targetH = String(Math.floor(target / 3600)).padStart(2, '0');
     const targetM = String(Math.floor((target % 3600) / 60)).padStart(2, '0');
-    const targetValue = target > 0 ? `${targetH}:${targetM}` : '';
+    const targetValue = target > 0 ? `${targetH}:${targetM}` : '00:00';
 
     const card = document.createElement('div');
     card.className = 'project-card' + (isRunning ? ' is-running' : '');
