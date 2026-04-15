@@ -345,8 +345,86 @@ body {
   border-top: 1px solid var(--border);
 }
 
-#grand-total {
+#grand-total, #target-total {
   font-variant-numeric: tabular-nums;
+}
+
+/* Log list */
+.log-list {
+  list-style: none;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.log-item {
+  font-size: 0.85rem;
+}
+
+.log-meta {
+  color: var(--text-secondary);
+}
+
+.log-dur {
+  font-variant-numeric: tabular-nums;
+}
+
+.log-note-text {
+  color: var(--text);
+  margin-top: 2px;
+  padding-left: 4px;
+  border-left: 2px solid var(--border);
+}
+
+.log-item--pending {
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.log-note-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.log-note-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+}
+
+.log-note-input:focus {
+  border-color: var(--accent);
+}
+
+.btn-note-done {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.total-row--target {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.88rem;
+  padding-top: 4px;
+  border-top: none;
 }
 
 .empty-state {

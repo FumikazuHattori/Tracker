@@ -6,8 +6,11 @@ let state = {
   projects: [],
   records: {},
   dailyTargets: {},
+  logs: [],
   running: null,
 };
+
+let pendingNoteLogId = null;
 
 function load() {
   try {
@@ -32,6 +35,11 @@ function formatHMS(totalSeconds) {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function formatTime(ms) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function todaySeconds(projectId) {
   const key = todayKey();
   return (state.records[key] && state.records[key][projectId]) || 0;
@@ -54,12 +62,21 @@ function grandTotalNow() {
   return state.projects.reduce((sum, p) => sum + totalSecondsForProjectNow(p.id), 0);
 }
 
+function grandTargetTotal() {
+  return state.projects.reduce((sum, p) => sum + getTodayTarget(p.id), 0);
+}
+
 function maxTodaySeconds() {
   return state.projects.reduce((max, p) => Math.max(max, totalSecondsForProjectNow(p.id)), 0);
 }
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function getTodayLogs(projectId) {
+  const key = todayKey();
+  return state.logs.filter(l => l.projectId === projectId && l.date === key);
 }
 
 function getTodayTarget(projectId) {
@@ -91,10 +108,30 @@ function startTimer(projectId) {
 
 function stopTimer(projectId) {
   if (!state.running || state.running.projectId !== projectId) return;
+  const startedAt = state.running.startedAt;
+  const stoppedAt = Date.now();
   commitRunning();
   state.running = null;
+
+  const logEntry = {
+    id: generateId(),
+    projectId,
+    date: todayKey(),
+    startedAt,
+    stoppedAt,
+    duration: (stoppedAt - startedAt) / 1000,
+    note: '',
+  };
+  state.logs.push(logEntry);
+  pendingNoteLogId = logEntry.id;
+
   save();
   render();
+
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`[data-log-input="${logEntry.id}"]`);
+    if (input) input.focus();
+  });
 }
 
 function commitRunning() {
@@ -104,6 +141,16 @@ function commitRunning() {
   const key = todayKey();
   if (!state.records[key]) state.records[key] = {};
   state.records[key][projectId] = (state.records[key][projectId] || 0) + elapsed;
+}
+
+function saveNote(logId, note) {
+  const entry = state.logs.find(l => l.id === logId);
+  if (entry) {
+    entry.note = note.trim();
+    save();
+  }
+  if (pendingNoteLogId === logId) pendingNoteLogId = null;
+  render();
 }
 
 function addProject(name) {
@@ -137,10 +184,9 @@ function buildTargetBar(actual, target) {
   if (target <= 0) return '';
   const pct = Math.min(actual / target * 100, 100);
   const cls = targetProgressClass(actual, target);
-  const remaining = target - actual;
   const statusText = actual >= target
     ? `\u8d85\u904e +${formatHMS(actual - target)}`
-    : `\u6b8b\u308a ${formatHMS(remaining)}`;
+    : `\u6b8b\u308a ${formatHMS(target - actual)}`;
   return `
     <div class="target-row">
       <div class="target-bar-wrap">
@@ -148,6 +194,40 @@ function buildTargetBar(actual, target) {
       </div>
       <span class="target-status ${cls}">${statusText} / \u30bf\u30fc\u30b2\u30c3\u30c8 ${formatHMS(target)}</span>
     </div>`;
+}
+
+function buildLogList(projectId) {
+  const logs = getTodayLogs(projectId);
+  if (logs.length === 0) return '';
+
+  const items = logs.map(log => {
+    const isPending = log.id === pendingNoteLogId;
+    const timeRange = `${formatTime(log.startedAt)}\u301c${formatTime(log.stoppedAt)}`;
+    const dur = formatHMS(log.duration);
+
+    if (isPending) {
+      return `
+        <li class="log-item log-item--pending">
+          <div class="log-meta">${timeRange} <span class="log-dur">(${dur})</span></div>
+          <div class="log-note-input-row">
+            <input class="log-note-input" type="text"
+              placeholder="\u4f55\u306e\u4f5c\u696d\u3092\u3057\u3066\u3044\u307e\u3057\u305f\u304b\uff1f\uff08\u4efb\u610f\uff09"
+              data-log-input="${log.id}"
+              value="${escHtml(log.note)}"
+              maxlength="200">
+            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">${'\u5b8c\u4e86'}</button>
+          </div>
+        </li>`;
+    }
+
+    return `
+      <li class="log-item">
+        <div class="log-meta">${timeRange} <span class="log-dur">(${dur})</span></div>
+        ${log.note ? `<div class="log-note-text">${escHtml(log.note)}</div>` : ''}
+      </li>`;
+  }).join('');
+
+  return `<ul class="log-list">${items}</ul>`;
 }
 
 function renderProjects() {
@@ -185,6 +265,7 @@ function renderProjects() {
       </div>
       ${target > 0 ? buildTargetBar(seconds, target) : ''}
       ${isRunning ? '<span class="running-label">\u25cf \u8a08\u6e2c\u4e2d</span>' : ''}
+      ${buildLogList(project.id)}
     `;
 
     container.appendChild(card);
@@ -194,10 +275,12 @@ function renderProjects() {
 function renderSummary() {
   const list = document.getElementById('summary-list');
   const grandEl = document.getElementById('grand-total');
+  const targetEl = document.getElementById('target-total');
 
   if (state.projects.length === 0) {
     list.innerHTML = '';
     grandEl.textContent = '0:00:00';
+    targetEl.textContent = '0:00:00';
     return;
   }
 
@@ -223,6 +306,7 @@ function renderSummary() {
   }
 
   grandEl.textContent = formatHMS(grandTotalNow());
+  targetEl.textContent = formatHMS(grandTargetTotal());
 }
 
 function escHtml(str) {
@@ -232,19 +316,33 @@ function escHtml(str) {
 document.getElementById('projects-container').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
-  const { action, id } = btn.dataset;
+  const { action } = btn.dataset;
 
   if (action === 'toggle') {
+    const id = btn.dataset.id;
     const isRunning = state.running && state.running.projectId === id;
     isRunning ? stopTimer(id) : startTimer(id);
   } else if (action === 'delete') {
+    const id = btn.dataset.id;
     const project = state.projects.find(p => p.id === id);
     if (project && confirm(`\u300c${project.name}\u300d\u3092\u524a\u9664\u3057\u307e\u3059\u304b\uff1f\n\u672c\u65e5\u306e\u8a18\u9332\u3082\u524a\u9664\u3055\u308c\u307e\u3059\u3002`)) {
       const key = todayKey();
       if (state.records[key]) delete state.records[key][id];
+      state.logs = state.logs.filter(l => l.projectId !== id);
       deleteProject(id);
     }
+  } else if (action === 'save-note') {
+    const logId = btn.dataset.logId;
+    const input = document.querySelector(`[data-log-input="${logId}"]`);
+    saveNote(logId, input ? input.value : '');
   }
+});
+
+document.getElementById('projects-container').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const input = e.target.closest('[data-log-input]');
+  if (!input) return;
+  saveNote(input.dataset.logInput, input.value);
 });
 
 document.getElementById('projects-container').addEventListener('change', (e) => {
@@ -258,7 +356,9 @@ document.getElementById('projects-container').addEventListener('change', (e) => 
   const actual = totalSecondsForProjectNow(id);
   const target = getTodayTarget(id);
   let targetRowEl = card.querySelector('.target-row');
+  const logListEl = card.querySelector('.log-list');
   const runningEl = card.querySelector('.running-label');
+  const insertBefore = runningEl || logListEl || null;
   if (target > 0) {
     const newBarHTML = buildTargetBar(actual, target);
     if (targetRowEl) {
@@ -266,7 +366,7 @@ document.getElementById('projects-container').addEventListener('change', (e) => 
     } else {
       const tmp = document.createElement('div');
       tmp.innerHTML = newBarHTML;
-      card.insertBefore(tmp.firstElementChild, runningEl || null);
+      card.insertBefore(tmp.firstElementChild, insertBefore);
     }
   } else if (targetRowEl) {
     targetRowEl.remove();
@@ -307,6 +407,7 @@ function tick() {
     const card = document.querySelector(`.project-card[data-id="${id}"]`);
     if (card && target > 0) {
       const targetRowEl = card.querySelector('.target-row');
+      const logListEl = card.querySelector('.log-list');
       const runningEl = card.querySelector('.running-label');
       const newBarHTML = buildTargetBar(actual, target);
       if (targetRowEl) {
@@ -316,7 +417,7 @@ function tick() {
       } else {
         const tmp = document.createElement('div');
         tmp.innerHTML = newBarHTML;
-        card.insertBefore(tmp.firstElementChild, runningEl || null);
+        card.insertBefore(tmp.firstElementChild, runningEl || logListEl || null);
       }
     }
 
