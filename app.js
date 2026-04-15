@@ -5,13 +5,18 @@ const STORAGE_KEY = 'wtt_data';
 // state.projects:     Array<{ id, name }>
 // state.records:      { [dateKey]: { [projectId]: totalSeconds } }
 // state.dailyTargets: { [dateKey]: { [projectId]: targetSeconds } }
+// state.logs:         Array<{ id, projectId, date, startedAt, stoppedAt, duration, note }>
 // state.running:      { projectId, startedAt (ms) } | null
 let state = {
   projects: [],
   records: {},
   dailyTargets: {},
+  logs: [],
   running: null,
 };
+
+// pendingNoteLogId: 直前に停止したログエントリのID（メモ入力待ち）- 永続化しない
+let pendingNoteLogId = null;
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 function load() {
@@ -38,6 +43,11 @@ function formatHMS(totalSeconds) {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function formatTime(ms) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function todaySeconds(projectId) {
   const key = todayKey();
   return (state.records[key] && state.records[key][projectId]) || 0;
@@ -60,12 +70,21 @@ function grandTotalNow() {
   return state.projects.reduce((sum, p) => sum + totalSecondsForProjectNow(p.id), 0);
 }
 
+function grandTargetTotal() {
+  return state.projects.reduce((sum, p) => sum + getTodayTarget(p.id), 0);
+}
+
 function maxTodaySeconds() {
   return state.projects.reduce((max, p) => Math.max(max, totalSecondsForProjectNow(p.id)), 0);
 }
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function getTodayLogs(projectId) {
+  const key = todayKey();
+  return state.logs.filter(l => l.projectId === projectId && l.date === key);
 }
 
 // ─── Target Helpers ───────────────────────────────────────────────────────────
@@ -99,10 +118,32 @@ function startTimer(projectId) {
 
 function stopTimer(projectId) {
   if (!state.running || state.running.projectId !== projectId) return;
+  const startedAt = state.running.startedAt;
+  const stoppedAt = Date.now();
   commitRunning();
   state.running = null;
+
+  // ログエントリ作成
+  const logEntry = {
+    id: generateId(),
+    projectId,
+    date: todayKey(),
+    startedAt,
+    stoppedAt,
+    duration: (stoppedAt - startedAt) / 1000,
+    note: '',
+  };
+  state.logs.push(logEntry);
+  pendingNoteLogId = logEntry.id;
+
   save();
   render();
+
+  // メモ入力欄にフォーカス
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`[data-log-input="${logEntry.id}"]`);
+    if (input) input.focus();
+  });
 }
 
 function commitRunning() {
@@ -112,6 +153,16 @@ function commitRunning() {
   const key = todayKey();
   if (!state.records[key]) state.records[key] = {};
   state.records[key][projectId] = (state.records[key][projectId] || 0) + elapsed;
+}
+
+function saveNote(logId, note) {
+  const entry = state.logs.find(l => l.id === logId);
+  if (entry) {
+    entry.note = note.trim();
+    save();
+  }
+  if (pendingNoteLogId === logId) pendingNoteLogId = null;
+  render();
 }
 
 // ─── Project Actions ──────────────────────────────────────────────────────────
@@ -147,10 +198,9 @@ function buildTargetBar(actual, target) {
   if (target <= 0) return '';
   const pct = Math.min(actual / target * 100, 100);
   const cls = targetProgressClass(actual, target);
-  const remaining = target - actual;
   const statusText = actual >= target
     ? `超過 +${formatHMS(actual - target)}`
-    : `残り ${formatHMS(remaining)}`;
+    : `残り ${formatHMS(target - actual)}`;
   return `
     <div class="target-row">
       <div class="target-bar-wrap">
@@ -158,6 +208,40 @@ function buildTargetBar(actual, target) {
       </div>
       <span class="target-status ${cls}">${statusText} / 目標 ${formatHMS(target)}</span>
     </div>`;
+}
+
+function buildLogList(projectId) {
+  const logs = getTodayLogs(projectId);
+  if (logs.length === 0) return '';
+
+  const items = logs.map(log => {
+    const isPending = log.id === pendingNoteLogId;
+    const timeRange = `${formatTime(log.startedAt)}〜${formatTime(log.stoppedAt)}`;
+    const dur = formatHMS(log.duration);
+
+    if (isPending) {
+      return `
+        <li class="log-item log-item--pending">
+          <div class="log-meta">${timeRange} <span class="log-dur">(${dur})</span></div>
+          <div class="log-note-input-row">
+            <input class="log-note-input" type="text"
+              placeholder="何の作業をしていましたか？（任意）"
+              data-log-input="${log.id}"
+              value="${escHtml(log.note)}"
+              maxlength="200">
+            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">完了</button>
+          </div>
+        </li>`;
+    }
+
+    return `
+      <li class="log-item">
+        <div class="log-meta">${timeRange} <span class="log-dur">(${dur})</span></div>
+        ${log.note ? `<div class="log-note-text">${escHtml(log.note)}</div>` : ''}
+      </li>`;
+  }).join('');
+
+  return `<ul class="log-list">${items}</ul>`;
 }
 
 function renderProjects() {
@@ -195,6 +279,7 @@ function renderProjects() {
       </div>
       ${target > 0 ? buildTargetBar(seconds, target) : ''}
       ${isRunning ? '<span class="running-label">● 計測中</span>' : ''}
+      ${buildLogList(project.id)}
     `;
 
     container.appendChild(card);
@@ -204,10 +289,12 @@ function renderProjects() {
 function renderSummary() {
   const list = document.getElementById('summary-list');
   const grandEl = document.getElementById('grand-total');
+  const targetEl = document.getElementById('target-total');
 
   if (state.projects.length === 0) {
     list.innerHTML = '';
     grandEl.textContent = '0:00:00';
+    targetEl.textContent = '0:00:00';
     return;
   }
 
@@ -233,6 +320,7 @@ function renderSummary() {
   }
 
   grandEl.textContent = formatHMS(grandTotalNow());
+  targetEl.textContent = formatHMS(grandTargetTotal());
 }
 
 function escHtml(str) {
@@ -243,22 +331,37 @@ function escHtml(str) {
 document.getElementById('projects-container').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
-  const { action, id } = btn.dataset;
+  const { action } = btn.dataset;
 
   if (action === 'toggle') {
+    const id = btn.dataset.id;
     const isRunning = state.running && state.running.projectId === id;
     isRunning ? stopTimer(id) : startTimer(id);
   } else if (action === 'delete') {
+    const id = btn.dataset.id;
     const project = state.projects.find(p => p.id === id);
     if (project && confirm(`「${project.name}」を削除しますか？\n本日の記録も削除されます。`)) {
       const key = todayKey();
       if (state.records[key]) delete state.records[key][id];
+      state.logs = state.logs.filter(l => l.projectId !== id);
       deleteProject(id);
     }
+  } else if (action === 'save-note') {
+    const logId = btn.dataset.logId;
+    const input = document.querySelector(`[data-log-input="${logId}"]`);
+    saveNote(logId, input ? input.value : '');
   }
 });
 
-// Save target when time input changes
+// Enterキーでメモ保存
+document.getElementById('projects-container').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const input = e.target.closest('[data-log-input]');
+  if (!input) return;
+  saveNote(input.dataset.logInput, input.value);
+});
+
+// 目標時間の変更
 document.getElementById('projects-container').addEventListener('change', (e) => {
   const input = e.target.closest('[data-action="set-target"]');
   if (!input) return;
@@ -267,20 +370,20 @@ document.getElementById('projects-container').addEventListener('change', (e) => 
   const [h, m] = (input.value || '00:00').split(':').map(Number);
   setTodayTarget(id, (h || 0) * 3600 + (m || 0) * 60);
   renderSummary();
-  // Re-render just the target bar inside this card without full re-render
   const actual = totalSecondsForProjectNow(id);
   const target = getTodayTarget(id);
   let targetRowEl = card.querySelector('.target-row');
+  const logListEl = card.querySelector('.log-list');
   const runningEl = card.querySelector('.running-label');
+  const insertBefore = runningEl || logListEl || null;
   if (target > 0) {
     const newBarHTML = buildTargetBar(actual, target);
     if (targetRowEl) {
       targetRowEl.outerHTML = newBarHTML;
     } else {
-      // Insert before running-label if exists, else append
       const tmp = document.createElement('div');
       tmp.innerHTML = newBarHTML;
-      card.insertBefore(tmp.firstElementChild, runningEl || null);
+      card.insertBefore(tmp.firstElementChild, insertBefore);
     }
   } else if (targetRowEl) {
     targetRowEl.remove();
@@ -319,10 +422,10 @@ function tick() {
     const timerEl = document.querySelector(`[data-timer="${id}"]`);
     if (timerEl) timerEl.textContent = formatHMS(actual);
 
-    // Update target bar for running project
     const card = document.querySelector(`.project-card[data-id="${id}"]`);
     if (card && target > 0) {
       const targetRowEl = card.querySelector('.target-row');
+      const logListEl = card.querySelector('.log-list');
       const runningEl = card.querySelector('.running-label');
       const newBarHTML = buildTargetBar(actual, target);
       if (targetRowEl) {
@@ -332,7 +435,7 @@ function tick() {
       } else {
         const tmp = document.createElement('div');
         tmp.innerHTML = newBarHTML;
-        card.insertBefore(tmp.firstElementChild, runningEl || null);
+        card.insertBefore(tmp.firstElementChild, runningEl || logListEl || null);
       }
     }
 
