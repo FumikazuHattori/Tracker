@@ -2,6 +2,11 @@
 
 const STORAGE_KEY = 'wtt_data';
 
+// state.projects:     Array<{ id, name }>
+// state.records:      { [dateKey]: { [projectId]: totalSeconds } }
+// state.dailyTargets: { [dateKey]: { [projectId]: targetSeconds } }
+// state.logs:         Array<{ id, projectId, date, startedAt, stoppedAt, duration, note }>
+// state.running:      { projectId, startedAt (ms) } | null
 let state = {
   projects: [],
   records: {},
@@ -10,8 +15,10 @@ let state = {
   running: null,
 };
 
+// pendingNoteLogId: 直前に停止したログエントリのID（メモ入力待ち）- 永続化しない
 let pendingNoteLogId = null;
 
+// ─── Persistence ──────────────────────────────────────────────────────────────
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -23,6 +30,7 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -79,6 +87,7 @@ function getTodayLogs(projectId) {
   return state.logs.filter(l => l.projectId === projectId && l.date === key);
 }
 
+// ─── Target Helpers ───────────────────────────────────────────────────────────
 function getTodayTarget(projectId) {
   const key = todayKey();
   return (state.dailyTargets[key] && state.dailyTargets[key][projectId]) || 0;
@@ -99,6 +108,7 @@ function targetProgressClass(actual, target) {
   return '';
 }
 
+// ─── Timer Actions ────────────────────────────────────────────────────────────
 function startTimer(projectId) {
   if (state.running) commitRunning();
   state.running = { projectId, startedAt: Date.now() };
@@ -113,6 +123,7 @@ function stopTimer(projectId) {
   commitRunning();
   state.running = null;
 
+  // ログエントリ作成
   const logEntry = {
     id: generateId(),
     projectId,
@@ -128,6 +139,7 @@ function stopTimer(projectId) {
   save();
   render();
 
+  // メモ入力欄にフォーカス
   requestAnimationFrame(() => {
     const input = document.querySelector(`[data-log-input="${logEntry.id}"]`);
     if (input) input.focus();
@@ -153,6 +165,7 @@ function saveNote(logId, note) {
   render();
 }
 
+// ─── Project Actions ──────────────────────────────────────────────────────────
 function addProject(name) {
   const trimmed = name.trim();
   if (!trimmed) return;
@@ -168,6 +181,7 @@ function deleteProject(projectId) {
   render();
 }
 
+// ─── Render ───────────────────────────────────────────────────────────────────
 function render() {
   renderDate();
   renderProjects();
@@ -185,14 +199,14 @@ function buildTargetBar(actual, target) {
   const pct = Math.min(actual / target * 100, 100);
   const cls = targetProgressClass(actual, target);
   const statusText = actual >= target
-    ? `\u8d85\u904e +${formatHMS(actual - target)}`
-    : `\u6b8b\u308a ${formatHMS(target - actual)}`;
+    ? `超過 +${formatHMS(actual - target)}`
+    : `残り ${formatHMS(target - actual)}`;
   return `
     <div class="target-row">
       <div class="target-bar-wrap">
         <div class="target-bar ${cls}" style="width:${pct.toFixed(1)}%"></div>
       </div>
-      <span class="target-status ${cls}">${statusText} / \u30bf\u30fc\u30b2\u30c3\u30c8 ${formatHMS(target)}</span>
+      <span class="target-status ${cls}">${statusText} / 目標 ${formatHMS(target)}</span>
     </div>`;
 }
 
@@ -202,7 +216,7 @@ function buildLogList(projectId) {
 
   const items = logs.map(log => {
     const isPending = log.id === pendingNoteLogId;
-    const timeRange = `${formatTime(log.startedAt)}\u301c${formatTime(log.stoppedAt)}`;
+    const timeRange = `${formatTime(log.startedAt)}〜${formatTime(log.stoppedAt)}`;
     const dur = formatHMS(log.duration);
 
     if (isPending) {
@@ -211,11 +225,11 @@ function buildLogList(projectId) {
           <div class="log-meta">${timeRange} <span class="log-dur">(${dur})</span></div>
           <div class="log-note-input-row">
             <input class="log-note-input" type="text"
-              placeholder="\u4f55\u306e\u4f5c\u696d\u3092\u3057\u3066\u3044\u307e\u3057\u305f\u304b\uff1f\uff08\u4efb\u610f\uff09"
+              placeholder="何の作業をしていましたか？（任意）"
               data-log-input="${log.id}"
               value="${escHtml(log.note)}"
               maxlength="200">
-            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">\u5b8c\u4e86</button>
+            <button class="btn-note-done" data-action="save-note" data-log-id="${log.id}">完了</button>
           </div>
         </li>`;
     }
@@ -234,7 +248,7 @@ function renderProjects() {
   const container = document.getElementById('projects-container');
 
   if (state.projects.length === 0) {
-    container.innerHTML = '<p class="empty-state">\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u304c\u3042\u308a\u307e\u305b\u3093\u3002\u4e0a\u306e\u30d5\u30a9\u30fc\u30e0\u304b\u3089\u8ffd\u52a0\u3057\u3066\u304f\u3060\u3055\u3044\u3002</p>';
+    container.innerHTML = '<p class="empty-state">プロジェクトがありません。上のフォームから追加してください。</p>';
     return;
   }
 
@@ -255,16 +269,16 @@ function renderProjects() {
       <div class="project-card-main">
         <span class="project-name" title="${escHtml(project.name)}">${escHtml(project.name)}</span>
         <span class="project-timer" data-timer="${project.id}">${formatHMS(seconds)}</span>
-        <button class="btn-toggle" data-action="toggle" data-id="${project.id}">${isRunning ? '\u505c\u6b62' : '\u958b\u59cb'}</button>
-        <button class="btn-delete" data-action="delete" data-id="${project.id}" title="\u524a\u9664">\u2715</button>
+        <button class="btn-toggle" data-action="toggle" data-id="${project.id}">${isRunning ? '停止' : '開始'}</button>
+        <button class="btn-delete" data-action="delete" data-id="${project.id}" title="削除">✕</button>
       </div>
       <div class="target-input-row">
-        <span class="target-label">\u4eca\u65e5\u306e\u30bf\u30fc\u30b2\u30c3\u30c8</span>
+        <span class="target-label">今日の目標</span>
         <input class="target-time-input" type="time" value="${targetValue}"
-          data-action="set-target" data-id="${project.id}" aria-label="\u76ee\u6a19\u6642\u9593">
+          data-action="set-target" data-id="${project.id}" aria-label="目標時間">
       </div>
       ${target > 0 ? buildTargetBar(seconds, target) : ''}
-      ${isRunning ? '<span class="running-label">\u25cf \u8a08\u6e2c\u4e2d</span>' : ''}
+      ${isRunning ? '<span class="running-label">● 計測中</span>' : ''}
       ${buildLogList(project.id)}
     `;
 
@@ -313,6 +327,7 @@ function escHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ─── Event Delegation ─────────────────────────────────────────────────────────
 document.getElementById('projects-container').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -325,7 +340,7 @@ document.getElementById('projects-container').addEventListener('click', (e) => {
   } else if (action === 'delete') {
     const id = btn.dataset.id;
     const project = state.projects.find(p => p.id === id);
-    if (project && confirm(`\u300c${project.name}\u300d\u3092\u524a\u9664\u3057\u307e\u3059\u304b\uff1f\n\u672c\u65e5\u306e\u8a18\u9332\u3082\u524a\u9664\u3055\u308c\u307e\u3059\u3002`)) {
+    if (project && confirm(`「${project.name}」を削除しますか？\n本日の記録も削除されます。`)) {
       const key = todayKey();
       if (state.records[key]) delete state.records[key][id];
       state.logs = state.logs.filter(l => l.projectId !== id);
@@ -338,6 +353,7 @@ document.getElementById('projects-container').addEventListener('click', (e) => {
   }
 });
 
+// Enterキーでメモ保存
 document.getElementById('projects-container').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   const input = e.target.closest('[data-log-input]');
@@ -345,6 +361,7 @@ document.getElementById('projects-container').addEventListener('keydown', (e) =>
   saveNote(input.dataset.logInput, input.value);
 });
 
+// 目標時間の変更
 document.getElementById('projects-container').addEventListener('change', (e) => {
   const input = e.target.closest('[data-action="set-target"]');
   if (!input) return;
@@ -381,6 +398,7 @@ document.getElementById('add-project-form').addEventListener('submit', (e) => {
   input.focus();
 });
 
+// ─── Tick ─────────────────────────────────────────────────────────────────────
 let lastDateKey = todayKey();
 
 function tick() {
@@ -425,6 +443,7 @@ function tick() {
   }
 }
 
+// ─── Init ─────────────────────────────────────────────────────────────────────
 load();
 render();
 setInterval(tick, 1000);
