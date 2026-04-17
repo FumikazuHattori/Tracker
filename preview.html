@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Work Time Tracker — Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style-preview.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Work Time Tracker</h1>
+      <div class="date">2026年4月17日（金）</div>
+    </header>
+
+    <section class="add-project">
+      <form id="add-project-form">
+        <input type="text" placeholder="プロジェクト名を入力..." maxlength="50" autocomplete="off">
+        <button type="submit">追加</button>
+      </form>
+    </section>
+
+    <section class="projects">
+
+      <div class="project-card is-running">
+        <div class="project-card-main">
+          <span class="project-name">Project Alpha</span>
+          <span class="project-timer">1:23:45</span>
+          <button class="btn-toggle">停止</button>
+          <button class="btn-delete">✕</button>
+        </div>
+        <div class="target-input-row">
+          <span class="target-label">今日のターゲット</span>
+          <input class="target-time-input" type="time" value="03:00">
+        </div>
+        <div class="target-row">
+          <div class="target-bar-wrap">
+            <div class="target-bar" style="width:46.3%"></div>
+          </div>
+          <span class="target-status">残り 1:36:15 / ターゲット 3:00:00</span>
+        </div>
+        <span class="running-label">● 計測中</span>
+        <ul class="log-list">
+          <li class="log-item">
+            <div class="log-meta">09:00〜10:15 <span class="log-dur">(1:15:00)</span></div>
+            <div class="log-note-text">朝のスタンドアップ＆タスク整理</div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="project-card">
+        <div class="project-card-main">
+          <span class="project-name">Project Beta</span>
+          <span class="project-timer">0:45:10</span>
+          <button class="btn-toggle">開始</button>
+          <button class="btn-delete">✕</button>
+        </div>
+        <div class="target-input-row">
+          <span class="target-label">今日のターゲット</span>
+          <input class="target-time-input" type="time" value="02:00">
+        </div>
+        <div class="target-row">
+          <div class="target-bar-wrap">
+            <div class="target-bar warn" style="width:85%"></div>
+          </div>
+          <span class="target-status warn">残り 0:17:30 / ターゲット 1:02:40</span>
+        </div>
+        <ul class="log-list">
+          <li class="log-item log-item--pending">
+            <div class="log-meta">11:00〜11:45 <span class="log-dur">(0:45:10)</span></div>
+            <div class="log-note-input-row">
+              <input class="log-note-input" type="text" placeholder="何の作業をしていましたか？（任意）" value="">
+              <button class="btn-note-done">完了</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="project-card">
+        <div class="project-card-main">
+          <span class="project-name">MTG / 社内調整</span>
+          <span class="project-timer">0:30:00</span>
+          <button class="btn-toggle">開始</button>
+          <button class="btn-delete">✕</button>
+        </div>
+        <div class="target-input-row">
+          <span class="target-label">今日のターゲット</span>
+          <input class="target-time-input" type="time" value="00:00">
+        </div>
+        <ul class="log-list">
+          <li class="log-item">
+            <div class="log-meta">10:30〜11:00 <span class="log-dur">(0:30:00)</span></div>
+            <div class="log-note-text">週次定例ミーティング</div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="project-card">
+        <div class="project-card-main">
+          <span class="project-name">Project Gamma</span>
+          <span class="project-timer">2:10:00</span>
+          <button class="btn-toggle">開始</button>
+          <button class="btn-delete">✕</button>
+        </div>
+        <div class="target-input-row">
+          <span class="target-label">今日のターゲット</span>
+          <input class="target-time-input" type="time" value="02:00">
+        </div>
+        <div class="target-row">
+          <div class="target-bar-wrap">
+            <div class="target-bar over" style="width:100%"></div>
+          </div>
+          <span class="target-status over">超過 +0:10:00 / ターゲット 2:00:00</span>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="summary">
+      <h2>本日の合計</h2>
+      <div class="summary-list">
+        <div class="summary-row">
+          <span class="s-name">Project Alpha</span>
+          <div class="s-bar-wrap"><div class="s-bar" style="width:46%"></div></div>
+          <span class="s-time">1:23:45 / 3:00:00</span>
+        </div>
+        <div class="summary-row">
+          <span class="s-name">Project Beta</span>
+          <div class="s-bar-wrap"><div class="s-bar warn" style="width:85%"></div></div>
+          <span class="s-time warn">0:45:10 / 1:02:40</span>
+        </div>
+        <div class="summary-row">
+          <span class="s-name">MTG / 社内調整</span>
+          <div class="s-bar-wrap"><div class="s-bar" style="width:30%"></div></div>
+          <span class="s-time">0:30:00</span>
+        </div>
+        <div class="summary-row">
+          <span class="s-name">Project Gamma</span>
+          <div class="s-bar-wrap"><div class="s-bar over" style="width:100%"></div></div>
+          <span class="s-time over">2:10:00 / 2:00:00</span>
+        </div>
+      </div>
+      <div class="total-row">
+        <span>実績合計</span>
+        <span id="grand-total">4:48:55</span>
+      </div>
+      <div class="total-row total-row--target">
+        <span>目標合計</span>
+        <span id="target-total">8:02:40</span>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>
